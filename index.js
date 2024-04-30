@@ -17,39 +17,85 @@ app.use(express.json());
 
 app.post('/api/data', async (req, res) => {
   try {
-      const {name, email, password,mobile } = req.body;
-      
-      // Hash the password
-      const hashedPassword = await hashPassword(password);
+    const { name, email, password, mobile } = req.body;
+    
+    // First, check if the email already exists in the database
+    const collectionRef = db.collection('data');
+    const emailExists = await collectionRef
+      .where('email', '==', email)
+      .get()
+      .then(snapshot => !snapshot.empty);
 
-      // Construct the data to be stored in the database
-      const newData = {
-          name:name,
-          email: email,
-          password: hashedPassword,
-          mobile:mobile
-          // Add other data fields as needed
-      };
+    if (emailExists) {
+      return res.status(409).json({ error: 'Email already exists' }); // 409 Conflict
+    }
 
-      const collectionRef = db.collection('data');
+    // Hash the password
+    const hashedPassword = await hashPassword(password);
 
-      // Check if the collection exists
-      const collectionExists = await collectionRef.get().then(snapshot => !snapshot.empty);
+    // Construct the data to be stored in the database
+    const newData = {
+      name,
+      email,
+      password: hashedPassword,
+      mobile,
+    };
 
-      if (!collectionExists) {
-          // Collection doesn't exist, create it
-          await collectionRef.doc().set({}); // Creating an empty document to force creation of the collection
-      }
+    // Check if the collection exists
+    const collectionExists = await collectionRef.get().then(snapshot => !snapshot.empty);
 
-      // Add data to the collection
-      const docRef = await collectionRef.add(newData);
+    if (!collectionExists) {
+      // Collection doesn't exist, create it
+      await collectionRef.doc().set({}); // Creating an empty document to force creation of the collection
+    }
 
-      res.status(201).json({ message: 'Data created successfully', id: docRef.id });
+    // Add data to the collection
+    const docRef = await collectionRef.add(newData);
+
+    res.status(201).json({ message: 'Data created successfully', id: docRef.id });
+
   } catch (error) {
-      console.error('Error adding document: ', error);
-      res.status(500).json({ error: 'Failed to create data' });
+    console.error('Error adding document: ', error);
+    res.status(500).json({ error: 'Failed to create data' });
   }
 });
+
+
+// app.post('/api/data', async (req, res) => {
+//   try {
+//       const {name, email, password,mobile } = req.body;
+      
+//       // Hash the password
+//       const hashedPassword = await hashPassword(password);
+
+//       // Construct the data to be stored in the database
+//       const newData = {
+//           name:name,
+//           email: email,
+//           password: hashedPassword,
+//           mobile:mobile
+//           // Add other data fields as needed
+//       };
+
+//       const collectionRef = db.collection('data');
+
+//       // Check if the collection exists
+//       const collectionExists = await collectionRef.get().then(snapshot => !snapshot.empty);
+
+//       if (!collectionExists) {
+//           // Collection doesn't exist, create it
+//           await collectionRef.doc().set({}); // Creating an empty document to force creation of the collection
+//       }
+
+//       // Add data to the collection
+//       const docRef = await collectionRef.add(newData);
+
+//       res.status(201).json({ message: 'Data created successfully', id: docRef.id });
+//   } catch (error) {
+//       console.error('Error adding document: ', error);
+//       res.status(500).json({ error: 'Failed to create data' });
+//   }
+// });
 
 // Function to hash a password
 async function hashPassword(password) {
